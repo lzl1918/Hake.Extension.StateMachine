@@ -45,42 +45,70 @@ namespace Hake.Extension.StateMachine
 
             TransformationRecord<TState, TInput> record;
             TState newState;
+            FollowingAction followingAction;
+            StateMachineEndingContext<TState, TInput> context;
+            bool invokeEnding = true;
+            int position = 0;
             foreach (TInput input in inputs)
             {
                 if (transformationTable.TryGetValue(state, out record))
                 {
-                    if (record.Transform(input, out newState))
+                    if (record.Transform(position, input, out newState, out followingAction))
+                    {
                         state = newState;
+                        position++;
+                        if (followingAction == FollowingAction.Stop)
+                        {
+                            context = new StateMachineEndingContext<TState, TInput>(this, EndingReason.EarlyStopped);
+                            foreach (Action<StateMachineEndingContext<TState, TInput>> action in endingActions)
+                                action.Invoke(context);
+                            invokeEnding = false;
+                            break;
+                        }
+                    }
                     else
                         throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");
                 }
                 else
                     throw new Exception($"no transform information given.\r\ncurrent state: {state}");
             }
-            StateMachineEndingContext<TState, TInput> context;
-            do
+            if (invokeEnding)
             {
-                context = new StateMachineEndingContext<TState, TInput>(this);
-                foreach (Action<StateMachineEndingContext<TState, TInput>> action in endingActions)
-                    action.Invoke(context);
-                if (context.Handled && context.Action == StateMachineEndingAction.ContinueWithFeededInputs)
+                do
                 {
-                    foreach (TInput input in context.FeededInputs)
+                    context = new StateMachineEndingContext<TState, TInput>(this, EndingReason.NoMoreInput);
+                    foreach (Action<StateMachineEndingContext<TState, TInput>> action in endingActions)
+                        action.Invoke(context);
+                    if (context.Handled && context.Action == StateMachineEndingAction.ContinueWithFeededInputs)
                     {
-                        if (transformationTable.TryGetValue(state, out record))
+                        foreach (TInput input in context.FeededInputs)
                         {
-                            if (record.Transform(input, out newState))
-                                state = newState;
+                            if (transformationTable.TryGetValue(state, out record))
+                            {
+                                if (record.Transform(position, input, out newState, out followingAction))
+                                {
+                                    state = newState;
+                                    position++;
+                                    if (followingAction == FollowingAction.Stop)
+                                    {
+                                        context = new StateMachineEndingContext<TState, TInput>(this, EndingReason.EarlyStopped);
+                                        foreach (Action<StateMachineEndingContext<TState, TInput>> action in endingActions)
+                                            action.Invoke(context);
+                                        invokeEnding = false;
+                                        break;
+                                    }
+                                }
+                                else
+                                    throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");
+                            }
                             else
-                                throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");
+                                throw new Exception($"no transform information given.\r\ncurrent state: {state}");
                         }
-                        else
-                            throw new Exception($"no transform information given.\r\ncurrent state: {state}");
                     }
-                }
-                else
-                    break;
-            } while (true);
+                    else
+                        break;
+                } while (true);
+            }
             return state;
         }
 
@@ -92,18 +120,7 @@ namespace Hake.Extension.StateMachine
             state = initialState;
             foreach (Action<IStateMachine<TState, TInput>> action in startingActions)
                 action(this);
-            TransformationRecord<TState, TInput> record;
-            TState newState;
-            if (transformationTable.TryGetValue(state, out record))
-            {
-                if (record.Transform(input, out newState))
-                    state = newState;
-                else
-                    throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");
-            }
-            else
-                throw new Exception($"no transform information given.\r\ncurrent state: {state}");
-            return state;
+            return InvokeOneShot(input);
         }
 
         public TState InvokeOneShot(TInput input)
@@ -113,9 +130,10 @@ namespace Hake.Extension.StateMachine
 
             TransformationRecord<TState, TInput> record;
             TState newState;
+            FollowingAction followingAction;
             if (transformationTable.TryGetValue(state, out record))
             {
-                if (record.Transform(input, out newState))
+                if (record.Transform(0, input, out newState, out followingAction))
                     state = newState;
                 else
                     throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");

@@ -55,7 +55,7 @@ namespace Hake.Extension.StateMachine.Internal
             transformations = builder.Transformations;
         }
 
-        public bool Transform(TInput input, out TState newState)
+        public bool Transform(int position, TInput input, out TState newState, out FollowingAction followingAction)
         {
             foreach (TriggerRecord<TState, TInput> triggerRecord in transformations)
             {
@@ -65,7 +65,7 @@ namespace Hake.Extension.StateMachine.Internal
                         if (input.Equals(triggerRecord.Trigger))
                         {
                             newState = triggerRecord.NewState;
-                            triggerRecord.TriggeringAction?.Invoke(State, newState, input);
+                            followingAction = FireTriggeringAction(triggerRecord, newState);
                             return true;
                         }
                         break;
@@ -73,23 +73,34 @@ namespace Hake.Extension.StateMachine.Internal
                         if (triggerRecord.Condition(State, input))
                         {
                             newState = triggerRecord.NewState;
-                            triggerRecord.TriggeringAction?.Invoke(State, newState, input);
+                            followingAction = FireTriggeringAction(triggerRecord, newState);
                             return true;
                         }
                         break;
                     case TriggerType.Always:
                         newState = triggerRecord.NewState;
-                        triggerRecord.TriggeringAction?.Invoke(State, newState, input);
+                        followingAction = FireTriggeringAction(triggerRecord, newState);
                         return true;
 
                     case TriggerType.AlwaysWithEvaluator:
                         newState = triggerRecord.Evaluator(State, input);
-                        triggerRecord.TriggeringAction?.Invoke(State, newState, input);
+                        followingAction = FireTriggeringAction(triggerRecord, newState);
                         return true;
                 }
             }
             newState = default(TState);
+            followingAction = FollowingAction.Continue;
             return false;
+
+            FollowingAction FireTriggeringAction(TriggerRecord<TState, TInput> triggerRecord, TState newstate)
+            {
+                TriggeringArguments<TState, TInput> arg = new TriggeringArguments<TState, TInput>(State, newstate, input, position);
+                triggerRecord.TriggeringAction?.Invoke(arg);
+                if (!arg.Handled)
+                    arg.FollowingAction = FollowingAction.Continue;
+                return arg.FollowingAction;
+
+            }
         }
     }
 }

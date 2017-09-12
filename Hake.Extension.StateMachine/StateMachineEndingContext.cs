@@ -3,8 +3,9 @@ using System.Collections.Generic;
 
 namespace Hake.Extension.StateMachine
 {
-    public sealed class StateMachineEndingContext<TState, TInput>
+    public class StateMachineEndingContext<TState, TInput>
     {
+        public EndingReason Reason { get; }
         public IStateMachine<TState, TInput> StateMachine { get; }
         public TState State { get; }
         public bool Handled { get; private set; }
@@ -12,9 +13,10 @@ namespace Hake.Extension.StateMachine
         internal StateMachineEndingAction Action { get; private set; }
         internal IReadOnlyList<TInput> FeededInputs { get; private set; }
 
-        internal StateMachineEndingContext(IStateMachine<TState, TInput> stateMachine)
+        internal StateMachineEndingContext(IStateMachine<TState, TInput> stateMachine, EndingReason reason)
         {
             StateMachine = stateMachine;
+            Reason = reason;
             State = StateMachine.State;
             Handled = false;
             Action = StateMachineEndingAction.End;
@@ -22,6 +24,8 @@ namespace Hake.Extension.StateMachine
 
         public void FeedInputs(IReadOnlyList<TInput> inputs)
         {
+            if (Reason == EndingReason.EarlyStopped)
+                throw new Exception("cannot continue executing of state machine stopped in advance");
             if (inputs == null)
                 throw new ArgumentNullException(nameof(inputs));
             if (inputs.Count <= 0)
