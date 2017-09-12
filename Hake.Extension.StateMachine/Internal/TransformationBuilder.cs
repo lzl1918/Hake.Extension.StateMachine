@@ -18,13 +18,13 @@ namespace Hake.Extension.StateMachine.Internal
         }
 
 
-        public ITransformationBuilder<TState, TInput> OnCondition(TState newState, TriggerCondition<TState, TInput> condition, TriggeringAction<TState, TInput> triggeringAction)
+        public ITransformationBuilder<TState, TInput> OnCondition(TriggerCondition<TState, TInput> condition, TState newState, TriggeringAction<TState, TInput> triggeringAction)
         {
             transformations.Add(new TriggerRecord<TState, TInput>(newState, condition, triggeringAction));
             return this;
         }
 
-        public ITransformationBuilder<TState, TInput> OnValue(TState newState, TInput triggerValue, TriggeringAction<TState, TInput> triggeringAction)
+        public ITransformationBuilder<TState, TInput> OnValue(TInput triggerValue, TState newState, TriggeringAction<TState, TInput> triggeringAction)
         {
             transformations.Add(new TriggerRecord<TState, TInput>(newState, triggerValue, triggeringAction));
             return this;
