@@ -7,16 +7,18 @@ namespace Hake.Extension.StateMachine
     {
         public EndingReason Reason { get; }
         public IStateMachine<TState, TInput> StateMachine { get; }
+        public TriggerType TriggerType { get; }
         public TState State { get; }
         public bool Handled { get; private set; }
 
         internal StateMachineEndingAction Action { get; private set; }
         internal IReadOnlyList<TInput> FeededInputs { get; private set; }
 
-        internal StateMachineEndingContext(IStateMachine<TState, TInput> stateMachine, EndingReason reason)
+        internal StateMachineEndingContext(IStateMachine<TState, TInput> stateMachine, EndingReason reason, TriggerType triggerType)
         {
             StateMachine = stateMachine;
             Reason = reason;
+            TriggerType = triggerType;
             State = StateMachine.State;
             Handled = false;
             Action = StateMachineEndingAction.End;

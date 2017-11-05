@@ -7,13 +7,16 @@ namespace Hake.Extension.StateMachine.Internal
     internal sealed class TransformationBuilder<TState, TInput> : ITransformationBuilder<TState, TInput>
     {
         private List<TriggerRecord<TState, TInput>> transformations;
+        private IStateMachine<TState, TInput> stateMachine;
+
         public IReadOnlyList<TriggerRecord<TState, TInput>> Transformations => transformations;
 
         public TState ConfiguringState { get; }
 
-        public TransformationBuilder(TState configuringState)
+        public TransformationBuilder(IStateMachine<TState, TInput> stateMachine, TState configuringState)
         {
             transformations = new List<TriggerRecord<TState, TInput>>();
+            this.stateMachine = stateMachine;
             ConfiguringState = configuringState;
         }
 
@@ -42,6 +45,6 @@ namespace Hake.Extension.StateMachine.Internal
             return this;
         }
 
-        public TransformationRecord<TState, TInput> Build() => new TransformationRecord<TState, TInput>(this);
+        public TransformationRecord<TState, TInput> Build() => new TransformationRecord<TState, TInput>(stateMachine, this);
     }
 }

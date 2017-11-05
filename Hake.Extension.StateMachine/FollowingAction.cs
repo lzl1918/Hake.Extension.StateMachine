@@ -4,6 +4,7 @@
     {
         Continue,
         Stop,
+        Shift,
     }
 
 

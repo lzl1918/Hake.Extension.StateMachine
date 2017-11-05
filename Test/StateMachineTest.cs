@@ -49,4 +49,43 @@ namespace Test
             }
         }
     }
+
+    [TestClass]
+    public class ProcessTest
+    {
+        [TestMethod]
+        public void TestProcess()
+        {
+            IStateMachine<int, char> proc = new StateMachine<int, char>();
+            proc.Configure(0)
+                .OnValue('3', 1);
+
+            proc.Configure(1)
+                .OnValue('4', 2);
+
+            proc.Configure(2)
+                .OnValue('0', 3, arg =>
+                {
+                    arg.FollowingAction = FollowingAction.Stop;
+                });
+
+
+            IStateMachine<int, char> main = new StateMachine<int, char>();
+            main.Configure(0)
+                .OnValue('1', 1)
+                .OnValueKeep('0');
+
+            main.Configure(1)
+                .OnValue('2', 2, arg =>
+                {
+                    arg.SetShift(proc, 0, i => i == 3 ? 0 : i);
+                })
+                .OnValue('0', 0)
+                .OnValueKeep('1');
+
+            string input = "01234012";
+            int state = main.Invoke(0, input);
+            Assert.AreEqual(0, state);
+        }
+    }
 }

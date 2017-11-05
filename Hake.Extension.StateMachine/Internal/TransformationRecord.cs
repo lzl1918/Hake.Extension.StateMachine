@@ -48,15 +48,19 @@ namespace Hake.Extension.StateMachine.Internal
         public TState State { get; }
 
         private IReadOnlyList<TriggerRecord<TState, TInput>> transformations;
+        private IStateMachine<TState, TInput> stateMachine;
 
-        public TransformationRecord(TransformationBuilder<TState, TInput> builder)
+        public TransformationRecord(IStateMachine<TState, TInput> stateMachine, TransformationBuilder<TState, TInput> builder)
         {
             State = builder.ConfiguringState;
             transformations = builder.Transformations;
+            this.stateMachine = stateMachine;
         }
 
-        public bool Transform(int position, TInput input, out TState newState, out FollowingAction followingAction)
+        public bool Transform(int position, TInput input, IEnumerable<TInput> inputs, StateMachine.TriggerType triggerType, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper)
         {
+            object context = null;
+            object mapper = null;
             foreach (TriggerRecord<TState, TInput> triggerRecord in transformations)
             {
                 switch (triggerRecord.Type)
@@ -66,6 +70,8 @@ namespace Hake.Extension.StateMachine.Internal
                         {
                             newState = triggerRecord.NewState;
                             followingAction = FireTriggeringAction(triggerRecord, newState);
+                            shiftContext = context;
+                            stateMapper = mapper;
                             return true;
                         }
                         break;
@@ -74,32 +80,44 @@ namespace Hake.Extension.StateMachine.Internal
                         {
                             newState = triggerRecord.NewState;
                             followingAction = FireTriggeringAction(triggerRecord, newState);
+                            shiftContext = context;
+                            stateMapper = mapper;
                             return true;
                         }
                         break;
                     case TriggerType.Always:
                         newState = triggerRecord.NewState;
                         followingAction = FireTriggeringAction(triggerRecord, newState);
+                        shiftContext = context;
+                        stateMapper = mapper;
                         return true;
 
                     case TriggerType.AlwaysWithEvaluator:
                         newState = triggerRecord.Evaluator(State, input);
                         followingAction = FireTriggeringAction(triggerRecord, newState);
+                        shiftContext = context;
+                        stateMapper = mapper;
                         return true;
                 }
             }
             newState = default(TState);
             followingAction = FollowingAction.Continue;
+            shiftContext = context;
+            stateMapper = mapper;
             return false;
 
             FollowingAction FireTriggeringAction(TriggerRecord<TState, TInput> triggerRecord, TState newstate)
             {
-                TriggeringArguments<TState, TInput> arg = new TriggeringArguments<TState, TInput>(State, newstate, input, position);
+                TriggeringArguments<TState, TInput> arg = new TriggeringArguments<TState, TInput>(stateMachine, inputs, State, newstate, input, position, triggerType);
                 triggerRecord.TriggeringAction?.Invoke(arg);
                 if (!arg.Handled)
                     arg.FollowingAction = FollowingAction.Continue;
+                if (arg.FollowingAction == FollowingAction.Shift)
+                {
+                    context = arg.ShiftContext;
+                    mapper = arg.StateMapper;
+                }
                 return arg.FollowingAction;
-
             }
         }
     }
