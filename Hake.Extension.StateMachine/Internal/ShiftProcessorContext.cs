@@ -17,7 +17,7 @@ namespace Hake.Extension.StateMachine.Internal
         public TState InitialState { get; }
         public IStateMachine<TState, TInput> Processor { get; }
 
-        public ProcessResult<TState> Invoke()
+        public InvokeResult<TState> Invoke()
         {
             return Processor.InvokeProcess(InitialState, Inputs, Position);
         }

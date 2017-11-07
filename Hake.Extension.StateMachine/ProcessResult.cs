@@ -1,15 +1,19 @@
 ﻿namespace Hake.Extension.StateMachine
 {
-    public class ProcessResult<TState>
+    public class InvokeResult<TState>
     {
-        public ProcessResult(int position, TState state)
+        public InvokeResult(int startPosition, TState startState, int endPosition, TState endState)
         {
-            Position = position;
-            State = state;
+            StartPosition = startPosition;
+            StartState = startState;
+            EndPosition = endPosition;
+            EndState = endState;
         }
 
-        public int Position { get; }
-        public TState State { get; }
+        public int StartPosition { get; }
+        public TState StartState { get; }
+        public int EndPosition { get; }
+        public TState EndState { get; }
 
     }
 

@@ -8,6 +8,23 @@ namespace Hake.Extension.StateMachine
 
     public sealed class StateMachine<TState, TInput> : IStateMachine<TState, TInput>
     {
+        private static object DynamicInvokeMethod(object obj, string name, params object[] param)
+        {
+            return obj.GetType().GetTypeInfo().GetDeclaredMethod(name).Invoke(obj, param);
+        }
+        private static object DynamicInvokeMethod(TypeInfo type, object obj, string name, params object[] param)
+        {
+            return type.GetDeclaredMethod(name).Invoke(obj, param);
+        }
+        private static object DynamicGetProperty(object obj, string name)
+        {
+            return obj.GetType().GetTypeInfo().GetDeclaredProperty(name).GetMethod.Invoke(obj, null);
+        }
+        private static object DynamicGetProperty(TypeInfo type, object obj, string name)
+        {
+            return type.GetDeclaredProperty(name).GetMethod.Invoke(obj, null);
+        }
+
         private TState state;
         public TState State => state;
 
@@ -37,7 +54,7 @@ namespace Hake.Extension.StateMachine
             return builder;
         }
 
-        public TState Invoke(TState initialState, IEnumerable<TInput> inputs)
+        public InvokeResult<TState> Invoke(TState initialState, IEnumerable<TInput> inputs)
         {
             if (!configurationLocked)
                 Rebuild();
@@ -63,7 +80,7 @@ namespace Hake.Extension.StateMachine
                         break;
                 } while (true);
             }
-            return state;
+            return new InvokeResult<TState>(0, initialState, position, state);
 
             void InvokeStateMachine(IEnumerable<TInput> elements, int begin)
             {
@@ -79,13 +96,13 @@ namespace Hake.Extension.StateMachine
                     input = enumerator.Current;
                     if (transformationTable.TryGetValue(state, out TransformationRecord<TState, TInput> record))
                     {
-                        if (record.Transform(position, input, elements, TriggerType.Main, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper))
+                        if (record.Transform(position, input, elements, TriggerType.Process, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper, out object callback, out object callbackData))
                         {
                             state = newState;
                             position++;
                             if (followingAction == FollowingAction.Stop)
                             {
-                                context = new StateMachineEndingContext<TState, TInput>(this, EndingReason.EarlyStopped, TriggerType.Main);
+                                context = new StateMachineEndingContext<TState, TInput>(this, EndingReason.EarlyStopped, TriggerType.Process);
                                 foreach (Action<StateMachineEndingContext<TState, TInput>> action in endingActions)
                                     action.Invoke(context);
                                 invokeEnding = false;
@@ -93,21 +110,42 @@ namespace Hake.Extension.StateMachine
                             }
                             else if (followingAction == FollowingAction.Shift)
                             {
-                                MethodInfo invokeMethod = shiftContext.GetType().GetTypeInfo().GetDeclaredMethod("Invoke");
-                                object result = invokeMethod.Invoke(shiftContext, null);
+                                TState oldState = state;
+                                object result = null;
+                                Exception exception = null;
+                                TypeInfo shiftContextType = shiftContext.GetType().GetTypeInfo();
+                                object processor = DynamicGetProperty(shiftContextType, shiftContext, "Processor");
+                                try
+                                {
+                                    result = DynamicInvokeMethod(shiftContextType, shiftContext, "Invoke");
+                                }
+                                catch (Exception ex)
+                                {
+                                    exception = ex;
+                                }
                                 TypeInfo resultType = result.GetType().GetTypeInfo();
-                                object substate = resultType.GetDeclaredProperty("State").GetMethod.Invoke(result, null);
-                                int subposition = (int)resultType.GetDeclaredProperty("Position").GetMethod.Invoke(result, null);
+                                object substate = DynamicGetProperty(resultType, result, "EndState");
+                                object newstate = substate;
+                                int endposition = (int)DynamicGetProperty(resultType, result, "EndPosition");
+                                int startposition = (int)DynamicGetProperty(resultType, result, "StartPosition");
                                 if (stateMapper != null)
                                 {
-                                    substate = ((Delegate)stateMapper).DynamicInvoke(substate);
+                                    newstate = ((Delegate)stateMapper).DynamicInvoke(newstate);
                                 }
-                                while (position < subposition)
+                                while (position < endposition)
                                 {
                                     enumerator.MoveNext();
                                     position++;
                                 }
-                                state = (TState)substate;
+                                state = (TState)newstate;
+                                if (callback != null)
+                                {
+                                    TypeInfo objectType = callback.GetType().GenericTypeArguments[0].GetTypeInfo();
+
+                                    object[] parameter = new object[] { callbackData, exception, processor, substate, oldState, stateMapper, startposition, endposition };
+                                    object shiftResult = objectType.GetDeclaredMethod("Create").Invoke(null, parameter);
+                                    ((Delegate)callback).DynamicInvoke(shiftResult);
+                                }
                             }
                         }
                         else
@@ -141,7 +179,7 @@ namespace Hake.Extension.StateMachine
             FollowingAction followingAction;
             if (transformationTable.TryGetValue(state, out record))
             {
-                if (record.Transform(0, input, new TInput[1] { input }, TriggerType.OneShot, out newState, out followingAction, out object shiftContext, out object stateMapper))
+                if (record.Transform(0, input, new TInput[1] { input }, TriggerType.OneShot, out newState, out followingAction, out object shiftContext, out object stateMapper, out object callback, out object callbackData))
                     state = newState;
                 else
                     throw new Exception($"no transform information given.\r\ncurrent state: {state}\r\ninput: {input}");
@@ -173,10 +211,11 @@ namespace Hake.Extension.StateMachine
             configurationLocked = true;
         }
 
-        public ProcessResult<TState> InvokeProcess(TState initialState, IEnumerable<TInput> inputs, int position)
+        public InvokeResult<TState> InvokeProcess(TState initialState, IEnumerable<TInput> inputs, int position)
         {
             if (!configurationLocked)
                 Rebuild();
+            int startPosition = position;
             state = initialState;
             foreach (Action<IStateMachine<TState, TInput>, TriggerType> action in startingActions)
                 action(this, TriggerType.Process);
@@ -198,7 +237,7 @@ namespace Hake.Extension.StateMachine
                         break;
                 } while (true);
             }
-            return new ProcessResult<TState>(position, state);
+            return new InvokeResult<TState>(startPosition, initialState, position, state);
 
             void InvokeStateMachine(IEnumerable<TInput> elements, int begin)
             {
@@ -214,7 +253,7 @@ namespace Hake.Extension.StateMachine
                     input = enumerator.Current;
                     if (transformationTable.TryGetValue(state, out TransformationRecord<TState, TInput> record))
                     {
-                        if (record.Transform(position, input, elements, TriggerType.Process, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper))
+                        if (record.Transform(position, input, elements, TriggerType.Process, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper, out object callback, out object callbackData))
                         {
                             state = newState;
                             position++;
@@ -228,21 +267,42 @@ namespace Hake.Extension.StateMachine
                             }
                             else if (followingAction == FollowingAction.Shift)
                             {
-                                MethodInfo invokeMethod = shiftContext.GetType().GetTypeInfo().GetDeclaredMethod("Invoke");
-                                object result = invokeMethod.Invoke(shiftContext, null);
+                                TState oldState = state;
+                                object result = null;
+                                Exception exception = null;
+                                TypeInfo shiftContextType = shiftContext.GetType().GetTypeInfo();
+                                object processor = DynamicGetProperty(shiftContextType, shiftContext, "Processor");
+                                try
+                                {
+                                    result = DynamicInvokeMethod(shiftContextType, shiftContext, "Invoke");
+                                }
+                                catch (Exception ex)
+                                {
+                                    exception = ex;
+                                }
                                 TypeInfo resultType = result.GetType().GetTypeInfo();
-                                object substate = resultType.GetDeclaredProperty("State").GetMethod.Invoke(result, null);
-                                int subposition = (int)resultType.GetDeclaredProperty("Position").GetMethod.Invoke(result, null);
+                                object substate = DynamicGetProperty(resultType, result, "EndState");
+                                object newstate = substate;
+                                int endposition = (int)DynamicGetProperty(resultType, result, "EndPosition");
+                                int startposition = (int)DynamicGetProperty(resultType, result, "StartPosition");
                                 if (stateMapper != null)
                                 {
-                                    substate = ((Delegate)stateMapper).DynamicInvoke(substate);
+                                    newstate = ((Delegate)stateMapper).DynamicInvoke(newstate);
                                 }
-                                while (position < subposition)
+                                while (position < endposition)
                                 {
                                     enumerator.MoveNext();
                                     position++;
                                 }
-                                state = (TState)substate;
+                                state = (TState)newstate;
+                                if (callback != null)
+                                {
+                                    TypeInfo objectType = callback.GetType().GenericTypeArguments[0].GetTypeInfo();
+
+                                    object[] parameter = new object[] { callbackData, exception, processor, substate, oldState, stateMapper, startposition, endposition };
+                                    object shiftResult = objectType.GetDeclaredMethod("Create").Invoke(null, parameter);
+                                    ((Delegate)callback).DynamicInvoke(shiftResult);
+                                }
                             }
                         }
                         else
@@ -252,7 +312,6 @@ namespace Hake.Extension.StateMachine
                         throw new Exception($"no transform information given.\r\ncurrent state: {state}");
                 }
             }
-
         }
     }
 

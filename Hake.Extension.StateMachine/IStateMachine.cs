@@ -15,8 +15,8 @@ namespace Hake.Extension.StateMachine
         IStateMachine<TState, TInput> OnStarting(Action<IStateMachine<TState, TInput>, TriggerType> action);
         IStateMachine<TState, TInput> OnEnding(Action<StateMachineEndingContext<TState, TInput>> context);
 
-        TState Invoke(TState initialState, IEnumerable<TInput> inputs);
-        ProcessResult<TState> InvokeProcess(TState initialState, IEnumerable<TInput> inputs, int position);
+        InvokeResult<TState> Invoke(TState initialState, IEnumerable<TInput> inputs);
+        InvokeResult<TState> InvokeProcess(TState initialState, IEnumerable<TInput> inputs, int position);
         TState InvokeOneShot(TState state, TInput input);
         TState InvokeOneShot(TInput input);
     }

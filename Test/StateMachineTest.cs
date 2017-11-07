@@ -1,6 +1,7 @@
 using Hake.Extension.StateMachine;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Diagnostics;
 
 namespace Test
 {
@@ -44,7 +45,7 @@ namespace Test
             while (times-- > 0)
             {
                 number = random.Next();
-                rem = machine.Invoke(0, number.ToString());
+                rem = machine.Invoke(0, number.ToString()).EndState;
                 Assert.AreEqual(number % 3, rem);
             }
         }
@@ -78,13 +79,16 @@ namespace Test
             main.Configure(1)
                 .OnValue('2', 2, arg =>
                 {
-                    arg.SetShift(proc, 0, i => i == 3 ? 0 : i);
+                    arg.SetShift(proc, 0, i => i == 3 ? 0 : i, result=>
+                    {
+                        Debug.WriteLine(result.EndPosition);
+                    }, "Abc");
                 })
                 .OnValue('0', 0)
                 .OnValueKeep('1');
 
             string input = "01234012";
-            int state = main.Invoke(0, input);
+            int state = main.Invoke(0, input).EndState;
             Assert.AreEqual(0, state);
         }
     }

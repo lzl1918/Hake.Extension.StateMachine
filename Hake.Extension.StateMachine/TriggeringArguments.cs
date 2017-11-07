@@ -46,35 +46,175 @@ namespace Hake.Extension.StateMachine
 
         internal object ShiftContext { get; private set; }
         internal object StateMapper { get; private set; }
-        public void SetShift(IStateMachine<TState, TInput> processor, TState initialState)
+        internal object ShiftCallback { get; private set; }
+        internal object CallbackData { get; private set; }
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState)
         {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
             if (processor == StateMachine)
                 throw new Exception("cannot set the processor same as the current state machine");
+
             ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
             ShiftContext = context;
             StateMapper = null;
             Handled = true;
             followingAction = FollowingAction.Shift;
         }
-        public void SetShift(IStateMachine<TState, TInput> processor, TState initialState, Func<TState, TState> stateMapper)
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState,
+            Action<ShiftResult<TState, TState, TInput>> callback)
         {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
             if (processor == StateMachine)
                 throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = null;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+        }
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState,
+            Action<ShiftResult<TState, TState, TInput>> callback,
+            object callbackData)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = null;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+            CallbackData = callbackData;
+        }
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState,
+            Func<TState, TState> stateMapper)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
             ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
             ShiftContext = context;
             StateMapper = stateMapper;
             Handled = true;
             followingAction = FollowingAction.Shift;
         }
-        public void SetShift<TSubState>(IStateMachine<TSubState, TInput> processor, TSubState initialState, Func<TSubState, TState> stateMapper)
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState,
+            Func<TState, TState> stateMapper,
+            Action<ShiftResult<TState, TState, TInput>> callback)
         {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
             if (processor == StateMachine)
                 throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = stateMapper;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+        }
+
+        public void SetShift(
+            IStateMachine<TState, TInput> processor,
+            TState initialState,
+            Func<TState, TState> stateMapper,
+            Action<ShiftResult<TState, TState, TInput>> callback,
+            object callbackData)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TState, TInput> context = new ShiftProcessorContext<TState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = stateMapper;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+            CallbackData = callbackData;
+        }
+
+        public void SetShift<TSubState>(
+            IStateMachine<TSubState, TInput> processor,
+            TSubState initialState,
+            Func<TSubState, TState> stateMapper)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
             ShiftProcessorContext<TSubState, TInput> context = new ShiftProcessorContext<TSubState, TInput>(InputPosition + 1, inputs, initialState, processor);
             ShiftContext = context;
             StateMapper = stateMapper;
             Handled = true;
             followingAction = FollowingAction.Shift;
+        }
+
+        public void SetShift<TSubState>(
+            IStateMachine<TSubState, TInput> processor,
+            TSubState initialState,
+            Func<TSubState, TState> stateMapper,
+            Action<ShiftResult<TSubState, TState, TInput>> callback)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TSubState, TInput> context = new ShiftProcessorContext<TSubState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = stateMapper;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+        }
+
+        public void SetShift<TSubState>(
+            IStateMachine<TSubState, TInput> processor,
+            TSubState initialState,
+            Func<TSubState, TState> stateMapper,
+            Action<ShiftResult<TSubState, TState, TInput>> callback,
+            object callbackData)
+        {
+            if (processor == null)
+                throw new ArgumentNullException(nameof(processor));
+            if (processor == StateMachine)
+                throw new Exception("cannot set the processor same as the current state machine");
+
+            ShiftProcessorContext<TSubState, TInput> context = new ShiftProcessorContext<TSubState, TInput>(InputPosition + 1, inputs, initialState, processor);
+            ShiftContext = context;
+            StateMapper = stateMapper;
+            Handled = true;
+            followingAction = FollowingAction.Shift;
+            ShiftCallback = callback;
+            CallbackData = callbackData;
         }
     }
 

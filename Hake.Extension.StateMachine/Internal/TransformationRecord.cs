@@ -57,10 +57,12 @@ namespace Hake.Extension.StateMachine.Internal
             this.stateMachine = stateMachine;
         }
 
-        public bool Transform(int position, TInput input, IEnumerable<TInput> inputs, StateMachine.TriggerType triggerType, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper)
+        public bool Transform(int position, TInput input, IEnumerable<TInput> inputs, StateMachine.TriggerType triggerType, out TState newState, out FollowingAction followingAction, out object shiftContext, out object stateMapper, out object callback, out object callbackData)
         {
             object context = null;
             object mapper = null;
+            object endcall = null;
+            object calldata = null;
             foreach (TriggerRecord<TState, TInput> triggerRecord in transformations)
             {
                 switch (triggerRecord.Type)
@@ -72,6 +74,8 @@ namespace Hake.Extension.StateMachine.Internal
                             followingAction = FireTriggeringAction(triggerRecord, newState);
                             shiftContext = context;
                             stateMapper = mapper;
+                            callback = endcall;
+                            callbackData = calldata;
                             return true;
                         }
                         break;
@@ -82,6 +86,8 @@ namespace Hake.Extension.StateMachine.Internal
                             followingAction = FireTriggeringAction(triggerRecord, newState);
                             shiftContext = context;
                             stateMapper = mapper;
+                            callback = endcall;
+                            callbackData = calldata;
                             return true;
                         }
                         break;
@@ -90,6 +96,8 @@ namespace Hake.Extension.StateMachine.Internal
                         followingAction = FireTriggeringAction(triggerRecord, newState);
                         shiftContext = context;
                         stateMapper = mapper;
+                        callback = endcall;
+                        callbackData = calldata;
                         return true;
 
                     case TriggerType.AlwaysWithEvaluator:
@@ -97,6 +105,8 @@ namespace Hake.Extension.StateMachine.Internal
                         followingAction = FireTriggeringAction(triggerRecord, newState);
                         shiftContext = context;
                         stateMapper = mapper;
+                        callback = endcall;
+                        callbackData = calldata;
                         return true;
                 }
             }
@@ -104,6 +114,8 @@ namespace Hake.Extension.StateMachine.Internal
             followingAction = FollowingAction.Continue;
             shiftContext = context;
             stateMapper = mapper;
+            callback = endcall;
+            callbackData = calldata;
             return false;
 
             FollowingAction FireTriggeringAction(TriggerRecord<TState, TInput> triggerRecord, TState newstate)
@@ -116,6 +128,8 @@ namespace Hake.Extension.StateMachine.Internal
                 {
                     context = arg.ShiftContext;
                     mapper = arg.StateMapper;
+                    endcall = arg.ShiftCallback;
+                    calldata = arg.CallbackData;
                 }
                 return arg.FollowingAction;
             }
